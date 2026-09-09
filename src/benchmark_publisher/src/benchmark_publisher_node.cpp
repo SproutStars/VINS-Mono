@@ -66,10 +66,10 @@ tf::Transform trans;
 void odom_callback(const nav_msgs::OdometryConstPtr &odom_msg)
 {
     //ROS_INFO("odom callback!");
-    if (odom_msg->header.stamp.toSec() > benchmark.back().t)
+    if (stampToSec(odom_msg->header.stamp) > benchmark.back().t)
       return;
   
-    for (; idx < static_cast<int>(benchmark.size()) && benchmark[idx].t <= odom_msg->header.stamp.toSec(); idx++)
+    for (; idx < static_cast<int>(benchmark.size()) && benchmark[idx].t <= stampToSec(odom_msg->header.stamp); idx++)
         ;
 
 

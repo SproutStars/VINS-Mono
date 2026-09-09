@@ -21,6 +21,7 @@
 #include "pose_graph.h"
 #include "utility/CameraPoseVisualization.h"
 #include "parameters.h"
+#include "camodocal/camera_models/YamlFile.h"
 #define SKIP_FIRST_CNT 10
 using namespace std;
 
@@ -98,17 +99,17 @@ void image_callback(const sensor_msgs::ImageConstPtr &image_msg)
     m_buf.lock();
     image_buf.push(image_msg);
     m_buf.unlock();
-    //printf(" image time %f \n", image_msg->header.stamp.toSec());
+    //printf(" image time %f \n", stampToSec(image_msg->header.stamp));
 
     // detect unstable camera stream
     if (last_image_time == -1)
-        last_image_time = image_msg->header.stamp.toSec();
-    else if (image_msg->header.stamp.toSec() - last_image_time > 1.0 || image_msg->header.stamp.toSec() < last_image_time)
+        last_image_time = stampToSec(image_msg->header.stamp);
+    else if (stampToSec(image_msg->header.stamp) - last_image_time > 1.0 || stampToSec(image_msg->header.stamp) < last_image_time)
     {
         ROS_WARN("image discontinue! detect a new sequence!");
         new_sequence();
     }
-    last_image_time = image_msg->header.stamp.toSec();
+    last_image_time = stampToSec(image_msg->header.stamp);
 }
 
 void point_callback(const sensor_msgs::PointCloudConstPtr &point_msg)
@@ -122,7 +123,7 @@ void point_callback(const sensor_msgs::PointCloudConstPtr &point_msg)
     /*
     for (unsigned int i = 0; i < point_msg->points.size(); i++)
     {
-        printf("%d, 3D point: %f, %f, %f 2D point %f, %f \n",i , point_msg->points[i].x, 
+        printf("%d, 3D point: %f, %f, %f 2D point %f, %f \n",i , point_msg->points[i].x,
                                                      point_msg->points[i].y,
                                                      point_msg->points[i].z,
                                                      point_msg->channels[i].values[0],
@@ -170,7 +171,7 @@ void imu_forward_callback(const nav_msgs::Odometry::ConstPtr &forward_msg)
         Vector3d vio_t_cam;
         Quaterniond vio_q_cam;
         vio_t_cam = vio_t + vio_q * tic;
-        vio_q_cam = vio_q * qic;        
+        vio_q_cam = vio_q * qic;
 
         cameraposevisual.reset();
         cameraposevisual.add_pose(vio_t_cam, vio_q_cam);
@@ -217,7 +218,7 @@ void vio_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
     Vector3d vio_t_cam;
     Quaterniond vio_q_cam;
     vio_t_cam = vio_t + vio_q * tic;
-    vio_q_cam = vio_q * qic;        
+    vio_q_cam = vio_q * qic;
 
     if (!VISUALIZE_IMU_FORWARD)
     {
@@ -305,29 +306,29 @@ void process()
         m_buf.lock();
         if(!image_buf.empty() && !point_buf.empty() && !pose_buf.empty())
         {
-            if (image_buf.front()->header.stamp.toSec() > pose_buf.front()->header.stamp.toSec())
+            if (stampToSec(image_buf.front()->header.stamp) > stampToSec(pose_buf.front()->header.stamp))
             {
                 pose_buf.pop();
                 printf("throw pose at beginning\n");
             }
-            else if (image_buf.front()->header.stamp.toSec() > point_buf.front()->header.stamp.toSec())
+            else if (stampToSec(image_buf.front()->header.stamp) > stampToSec(point_buf.front()->header.stamp))
             {
                 point_buf.pop();
                 printf("throw point at beginning\n");
             }
-            else if (image_buf.back()->header.stamp.toSec() >= pose_buf.front()->header.stamp.toSec() 
-                && point_buf.back()->header.stamp.toSec() >= pose_buf.front()->header.stamp.toSec())
+            else if (stampToSec(image_buf.back()->header.stamp) >= stampToSec(pose_buf.front()->header.stamp)
+                && stampToSec(point_buf.back()->header.stamp) >= stampToSec(pose_buf.front()->header.stamp))
             {
                 pose_msg = pose_buf.front();
                 pose_buf.pop();
                 while (!pose_buf.empty())
                     pose_buf.pop();
-                while (image_buf.front()->header.stamp.toSec() < pose_msg->header.stamp.toSec())
+                while (stampToSec(image_buf.front()->header.stamp) < stampToSec(pose_msg->header.stamp))
                     image_buf.pop();
                 image_msg = image_buf.front();
                 image_buf.pop();
 
-                while (point_buf.front()->header.stamp.toSec() < pose_msg->header.stamp.toSec())
+                while (stampToSec(point_buf.front()->header.stamp) < stampToSec(pose_msg->header.stamp))
                     point_buf.pop();
                 point_msg = point_buf.front();
                 point_buf.pop();
@@ -337,9 +338,9 @@ void process()
 
         if (pose_msg != NULL)
         {
-            //printf(" pose time %f \n", pose_msg->header.stamp.toSec());
-            //printf(" point time %f \n", point_msg->header.stamp.toSec());
-            //printf(" image time %f \n", image_msg->header.stamp.toSec());
+            //printf(" pose time %f \n", stampToSec(pose_msg->header.stamp));
+            //printf(" point time %f \n", stampToSec(point_msg->header.stamp));
+            //printf(" image time %f \n", stampToSec(image_msg->header.stamp));
             // skip fisrt few
             if (skip_first_cnt < SKIP_FIRST_CNT)
             {
@@ -372,7 +373,7 @@ void process()
             }
             else
                 ptr = cv_bridge::toCvCopy(image_msg, sensor_msgs::image_encodings::MONO8);
-            
+
             cv::Mat image = ptr->image;
             // build keyframe
             Vector3d T = Vector3d(pose_msg->pose.pose.position.x,
@@ -384,8 +385,8 @@ void process()
                                      pose_msg->pose.pose.orientation.z).toRotationMatrix();
             if((T - last_t).norm() > SKIP_DIS)
             {
-                vector<cv::Point3f> point_3d; 
-                vector<cv::Point2f> point_2d_uv; 
+                vector<cv::Point3f> point_3d;
+                vector<cv::Point2f> point_2d_uv;
                 vector<cv::Point2f> point_2d_normal;
                 vector<double> point_id;
 
@@ -411,8 +412,8 @@ void process()
                     //printf("u %f, v %f \n", p_2d_uv.x, p_2d_uv.y);
                 }
 
-                KeyFrame* keyframe = new KeyFrame(pose_msg->header.stamp.toSec(), frame_index, T, R, image,
-                                   point_3d, point_2d_uv, point_2d_normal, point_id, sequence);   
+                KeyFrame* keyframe = new KeyFrame(stampToSec(pose_msg->header.stamp), frame_index, T, R, image,
+                                   point_3d, point_2d_uv, point_2d_normal, point_id, sequence);
                 m_process.lock();
                 start_flag = 1;
                 posegraph.addKeyFrame(keyframe, 1);
@@ -470,39 +471,41 @@ int main(int argc, char **argv)
         std::cerr << "ERROR: Wrong path to settings" << std::endl;
     }
 
-    double camera_visual_size = fsSettings["visualize_camera_size"];
+    cv::FileNode settings = camodocal::yamlParameters(fsSettings);
+
+    double camera_visual_size = settings["visualize_camera_size"];
     cameraposevisual.setScale(camera_visual_size);
     cameraposevisual.setLineWidth(camera_visual_size / 10.0);
 
 
-    LOOP_CLOSURE = fsSettings["loop_closure"];
+    LOOP_CLOSURE = settings["loop_closure"];
     std::string IMAGE_TOPIC;
     int LOAD_PREVIOUS_POSE_GRAPH;
     if (LOOP_CLOSURE)
     {
-        ROW = fsSettings["image_height"];
-        COL = fsSettings["image_width"];
+        ROW = settings["image_height"];
+        COL = settings["image_width"];
         std::string pkg_path = ros::package::getPath("pose_graph");
-        string vocabulary_file = pkg_path + "/../support_files/brief_k10L6.bin";
+        string vocabulary_file = pkg_path + "/brief_k10L6.bin";
         cout << "vocabulary_file" << vocabulary_file << endl;
         posegraph.loadVocabulary(vocabulary_file);
 
-        BRIEF_PATTERN_FILE = pkg_path + "/../support_files/brief_pattern.yml";
+        BRIEF_PATTERN_FILE = pkg_path + "/brief_pattern.yml";
         cout << "BRIEF_PATTERN_FILE" << BRIEF_PATTERN_FILE << endl;
         m_camera = camodocal::CameraFactory::instance()->generateCameraFromYamlFile(config_file.c_str());
 
-        fsSettings["image_topic"] >> IMAGE_TOPIC;        
-        fsSettings["pose_graph_save_path"] >> POSE_GRAPH_SAVE_PATH;
-        fsSettings["output_path"] >> VINS_RESULT_PATH;
-        fsSettings["save_image"] >> DEBUG_IMAGE;
+        settings["image_topic"] >> IMAGE_TOPIC;
+        settings["pose_graph_save_path"] >> POSE_GRAPH_SAVE_PATH;
+        settings["output_path"] >> VINS_RESULT_PATH;
+        settings["save_image"] >> DEBUG_IMAGE;
 
         // create folder if not exists
         FileSystemHelper::createDirectoryIfNotExists(POSE_GRAPH_SAVE_PATH.c_str());
         FileSystemHelper::createDirectoryIfNotExists(VINS_RESULT_PATH.c_str());
 
-        VISUALIZE_IMU_FORWARD = fsSettings["visualize_imu_forward"];
-        LOAD_PREVIOUS_POSE_GRAPH = fsSettings["load_previous_pose_graph"];
-        FAST_RELOCALIZATION = fsSettings["fast_relocalization"];
+        VISUALIZE_IMU_FORWARD = settings["visualize_imu_forward"];
+        LOAD_PREVIOUS_POSE_GRAPH = settings["load_previous_pose_graph"];
+        FAST_RELOCALIZATION = settings["fast_relocalization"];
         VINS_RESULT_PATH = VINS_RESULT_PATH + "/vins_result_loop.csv";
         std::ofstream fout(VINS_RESULT_PATH, std::ios::out);
         fout.close();

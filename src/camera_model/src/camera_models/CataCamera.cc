@@ -1,4 +1,5 @@
 #include "camodocal/camera_models/CataCamera.h"
+#include "camodocal/camera_models/YamlFile.h"
 
 #include <cmath>
 #include <cstdio>
@@ -167,10 +168,12 @@ CataCamera::Parameters::readFromYamlFile(const std::string& filename)
         return false;
     }
 
-    if (!fs["model_type"].isNone())
+    cv::FileNode settings = yamlParameters(fs);
+
+    if (!settings["model_type"].isNone())
     {
         std::string sModelType;
-        fs["model_type"] >> sModelType;
+        settings["model_type"] >> sModelType;
 
         if (sModelType.compare("MEI") != 0)
         {
@@ -179,20 +182,20 @@ CataCamera::Parameters::readFromYamlFile(const std::string& filename)
     }
 
     m_modelType = MEI;
-    fs["camera_name"] >> m_cameraName;
-    m_imageWidth = static_cast<int>(fs["image_width"]);
-    m_imageHeight = static_cast<int>(fs["image_height"]);
+    settings["camera_name"] >> m_cameraName;
+    m_imageWidth = static_cast<int>(settings["image_width"]);
+    m_imageHeight = static_cast<int>(settings["image_height"]);
 
-    cv::FileNode n = fs["mirror_parameters"];
+    cv::FileNode n = settings["mirror_parameters"];
     m_xi = static_cast<double>(n["xi"]);
 
-    n = fs["distortion_parameters"];
+    n = settings["distortion_parameters"];
     m_k1 = static_cast<double>(n["k1"]);
     m_k2 = static_cast<double>(n["k2"]);
     m_p1 = static_cast<double>(n["p1"]);
     m_p2 = static_cast<double>(n["p2"]);
 
-    n = fs["projection_parameters"];
+    n = settings["projection_parameters"];
     m_gamma1 = static_cast<double>(n["gamma1"]);
     m_gamma2 = static_cast<double>(n["gamma2"]);
     m_u0 = static_cast<double>(n["u0"]);

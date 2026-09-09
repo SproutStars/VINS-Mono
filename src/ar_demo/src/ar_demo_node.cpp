@@ -8,7 +8,7 @@
 #include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/PointCloud.h>
 #include <cv_bridge/cv_bridge.h>
-#include <image_transport/image_transport.h>
+#include <image_transport/image_transport.hpp>
 #include <cmath>
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -483,7 +483,7 @@ void pose_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
         return;
     }
 
-    while (img_buf.front()->header.stamp < pose_msg->header.stamp && !img_buf.empty())
+    while (stampToSec(img_buf.front()->header.stamp) < stampToSec(pose_msg->header.stamp) && !img_buf.empty())
     {
         img_buf.pop();
     }
@@ -498,7 +498,7 @@ void pose_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
 }
 int main( int argc, char** argv )
 {
-    ros::init(argc, argv, "points_and_lines");
+    ros::init(argc, argv, "ar_demo_node");
     ros::NodeHandle n("~");
     object_pub = n.advertise<visualization_msgs::MarkerArray>("AR_object", 10);
     n.getParam("use_undistored_img", USE_UNDISTORED_IMG);
@@ -533,7 +533,7 @@ int main( int argc, char** argv )
 
     ros::Subscriber pose_img = n.subscribe("camera_pose", 100, pose_callback);
     ros::Subscriber sub_point = n.subscribe("pointcloud", 2000, point_callback);
-    image_transport::ImageTransport it(n);
+    image_transport::ImageTransport it(n.node());
     pub_ARimage = it.advertise("AR_image", 1000);
 
     line_color_r.r = 1.0;

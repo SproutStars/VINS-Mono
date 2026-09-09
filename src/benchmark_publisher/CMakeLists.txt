@@ -1,28 +1,24 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.8)
 project(benchmark_publisher)
 
-set(CMAKE_BUILD_TYPE "Release")
-set(CMAKE_CXX_FLAGS "-std=c++11 -DEIGEN_DONT_PARALLELIZE")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g -rdynamic")
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+endif()
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+add_compile_options(-O3 -Wall -Wno-deprecated-declarations)
 
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(ros2_compat REQUIRED)
+find_package(Eigen3 REQUIRED)
 
-find_package(catkin REQUIRED COMPONENTS
-    roscpp
-    tf
-    )
+add_executable(benchmark_publisher src/benchmark_publisher_node.cpp)
+target_include_directories(benchmark_publisher PRIVATE src ${EIGEN3_INCLUDE_DIRS})
+ament_target_dependencies(benchmark_publisher rclcpp ros2_compat)
 
-catkin_package()
-include_directories(${catkin_INCLUDE_DIRS}) 
+install(TARGETS benchmark_publisher DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY config/ DESTINATION share/${PROJECT_NAME}/config)
 
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
-find_package(Eigen3)
-include_directories(
-  ${catkin_INCLUDE_DIRS}
-  ${EIGEN3_INCLUDE_DIR}
-)
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 
-add_executable(benchmark_publisher
-    src/benchmark_publisher_node.cpp
-    )
-
-target_link_libraries(benchmark_publisher ${catkin_LIBRARIES})
+ament_package()

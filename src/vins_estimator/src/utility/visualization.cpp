@@ -157,7 +157,7 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
         ofstream foutC(VINS_RESULT_PATH, ios::app);
         foutC.setf(ios::fixed, ios::floatfield);
         foutC.precision(0);
-        foutC << header.stamp.toSec() * 1e9 << ",";
+        foutC << stampToSec(header.stamp) * 1e9 << ",";
         foutC.precision(5);
         foutC << estimator.Ps[WINDOW_SIZE].x() << ","
               << estimator.Ps[WINDOW_SIZE].y() << ","
@@ -365,7 +365,7 @@ void pubKeyframe(const Estimator &estimator)
         odometry.pose.pose.orientation.y = R.y();
         odometry.pose.pose.orientation.z = R.z();
         odometry.pose.pose.orientation.w = R.w();
-        //printf("time: %f t: %f %f %f r: %f %f %f %f\n", odometry.header.stamp.toSec(), P.x(), P.y(), P.z(), R.w(), R.x(), R.y(), R.z());
+        //printf("time: %f t: %f %f %f r: %f %f %f %f\n", stampToSec(odometry.header.stamp), P.x(), P.y(), P.z(), R.w(), R.x(), R.y(), R.z());
 
         pub_keyframe_pose.publish(odometry);
 

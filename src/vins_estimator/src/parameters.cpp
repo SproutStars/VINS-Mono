@@ -1,4 +1,5 @@
 #include "parameters.h"
+#include "camodocal/camera_models/YamlFile.h"
 
 double INIT_DEPTH;
 double MIN_PARALLAX;
@@ -49,15 +50,17 @@ void readParameters(ros::NodeHandle &n)
         std::cerr << "ERROR: Wrong path to settings" << std::endl;
     }
 
-    fsSettings["imu_topic"] >> IMU_TOPIC;
+    cv::FileNode settings = camodocal::yamlParameters(fsSettings);
 
-    SOLVER_TIME = fsSettings["max_solver_time"];
-    NUM_ITERATIONS = fsSettings["max_num_iterations"];
-    MIN_PARALLAX = fsSettings["keyframe_parallax"];
+    settings["imu_topic"] >> IMU_TOPIC;
+
+    SOLVER_TIME = settings["max_solver_time"];
+    NUM_ITERATIONS = settings["max_num_iterations"];
+    MIN_PARALLAX = settings["keyframe_parallax"];
     MIN_PARALLAX = MIN_PARALLAX / FOCAL_LENGTH;
 
     std::string OUTPUT_PATH;
-    fsSettings["output_path"] >> OUTPUT_PATH;
+    settings["output_path"] >> OUTPUT_PATH;
     VINS_RESULT_PATH = OUTPUT_PATH + "/vins_result_no_loop.csv";
     std::cout << "result path " << VINS_RESULT_PATH << std::endl;
 
@@ -67,16 +70,16 @@ void readParameters(ros::NodeHandle &n)
     std::ofstream fout(VINS_RESULT_PATH, std::ios::out);
     fout.close();
 
-    ACC_N = fsSettings["acc_n"];
-    ACC_W = fsSettings["acc_w"];
-    GYR_N = fsSettings["gyr_n"];
-    GYR_W = fsSettings["gyr_w"];
-    G.z() = fsSettings["g_norm"];
-    ROW = fsSettings["image_height"];
-    COL = fsSettings["image_width"];
+    ACC_N = settings["acc_n"];
+    ACC_W = settings["acc_w"];
+    GYR_N = settings["gyr_n"];
+    GYR_W = settings["gyr_w"];
+    G.z() = settings["g_norm"];
+    ROW = settings["image_height"];
+    COL = settings["image_width"];
     ROS_INFO("ROW: %f COL: %f ", ROW, COL);
 
-    ESTIMATE_EXTRINSIC = fsSettings["estimate_extrinsic"];
+    ESTIMATE_EXTRINSIC = settings["estimate_extrinsic"];
     if (ESTIMATE_EXTRINSIC == 2)
     {
         ROS_WARN("have no prior about extrinsic param, calibrate extrinsic param");
@@ -96,8 +99,30 @@ void readParameters(ros::NodeHandle &n)
             ROS_WARN(" fix extrinsic param ");
 
         cv::Mat cv_R, cv_T;
-        fsSettings["extrinsicRotation"] >> cv_R;
-        fsSettings["extrinsicTranslation"] >> cv_T;
+        const cv::FileNode rotation_node = settings["extrinsicRotation"];
+        const cv::FileNode translation_node = settings["extrinsicTranslation"];
+        if (rotation_node.isSeq() && translation_node.isSeq())
+        {
+            std::vector<double> rotation_values;
+            std::vector<double> translation_values;
+            rotation_node >> rotation_values;
+            translation_node >> translation_values;
+            if (rotation_values.size() != 9 || translation_values.size() != 3)
+            {
+                ROS_ERROR("extrinsicRotation must contain 9 values and extrinsicTranslation must contain 3 values");
+                n.shutdown();
+                return;
+            }
+            cv_R = cv::Mat(3, 3, CV_64F, rotation_values.data()).clone();
+            cv_T = cv::Mat(3, 1, CV_64F, translation_values.data()).clone();
+        }
+        else
+        {
+            // Backward compatibility with the original !!opencv-matrix layout.
+            rotation_node >> cv_R;
+            translation_node >> cv_T;
+        }
+
         Eigen::Matrix3d eigen_R;
         Eigen::Vector3d eigen_T;
         cv::cv2eigen(cv_R, eigen_R);
@@ -115,17 +140,17 @@ void readParameters(ros::NodeHandle &n)
     BIAS_ACC_THRESHOLD = 0.1;
     BIAS_GYR_THRESHOLD = 0.1;
 
-    TD = fsSettings["td"];
-    ESTIMATE_TD = fsSettings["estimate_td"];
+    TD = settings["td"];
+    ESTIMATE_TD = settings["estimate_td"];
     if (ESTIMATE_TD)
         ROS_INFO_STREAM("Unsynchronized sensors, online estimate time offset, initial td: " << TD);
     else
         ROS_INFO_STREAM("Synchronized sensors, fix time offset: " << TD);
 
-    ROLLING_SHUTTER = fsSettings["rolling_shutter"];
+    ROLLING_SHUTTER = settings["rolling_shutter"];
     if (ROLLING_SHUTTER)
     {
-        TR = fsSettings["rolling_shutter_tr"];
+        TR = settings["rolling_shutter_tr"];
         ROS_INFO_STREAM("rolling shutter camera, read out time per line: " << TR);
     }
     else

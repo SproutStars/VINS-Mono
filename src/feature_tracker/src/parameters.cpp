@@ -1,4 +1,5 @@
 #include "parameters.h"
+#include "camodocal/camera_models/YamlFile.h"
 
 std::string IMAGE_TOPIC;
 std::string IMU_TOPIC;
@@ -43,19 +44,23 @@ void readParameters(ros::NodeHandle &n)
     {
         std::cerr << "ERROR: Wrong path to settings" << std::endl;
     }
-    std::string VINS_FOLDER_PATH = readParam<std::string>(n, "vins_folder");
+    cv::FileNode settings = camodocal::yamlParameters(fsSettings);
 
-    fsSettings["image_topic"] >> IMAGE_TOPIC;
-    fsSettings["imu_topic"] >> IMU_TOPIC;
-    MAX_CNT = fsSettings["max_cnt"];
-    MIN_DIST = fsSettings["min_dist"];
-    ROW = fsSettings["image_height"];
-    COL = fsSettings["image_width"];
-    FREQ = fsSettings["freq"];
-    F_THRESHOLD = fsSettings["F_threshold"];
-    SHOW_TRACK = fsSettings["show_track"];
-    EQUALIZE = fsSettings["equalize"];
-    FISHEYE = fsSettings["fisheye"];
+    std::string VINS_FOLDER_PATH = readParam<std::string>(n, "vins_folder");
+    if (!VINS_FOLDER_PATH.empty() && VINS_FOLDER_PATH.back() != '/')
+        VINS_FOLDER_PATH += '/';
+
+    settings["image_topic"] >> IMAGE_TOPIC;
+    settings["imu_topic"] >> IMU_TOPIC;
+    MAX_CNT = settings["max_cnt"];
+    MIN_DIST = settings["min_dist"];
+    ROW = settings["image_height"];
+    COL = settings["image_width"];
+    FREQ = settings["freq"];
+    F_THRESHOLD = settings["F_threshold"];
+    SHOW_TRACK = settings["show_track"];
+    EQUALIZE = settings["equalize"];
+    FISHEYE = settings["fisheye"];
     if (FISHEYE == 1)
         FISHEYE_MASK = VINS_FOLDER_PATH + "config/fisheye_mask.jpg";
     CAM_NAMES.push_back(config_file);

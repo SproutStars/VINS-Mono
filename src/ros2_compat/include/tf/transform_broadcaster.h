@@ -10,6 +10,9 @@ public:
   double x() const { return x_; }
   double y() const { return y_; }
   double z() const { return z_; }
+  void setX(double x) { x_ = x; }
+  void setY(double y) { y_ = y; }
+  void setZ(double z) { z_ = z; }
 private:
   double x_{0.0}, y_{0.0}, z_{0.0};
 };
@@ -22,6 +25,10 @@ public:
   double y() const { return y_; }
   double z() const { return z_; }
   double w() const { return w_; }
+  void setX(double x) { x_ = x; }
+  void setY(double y) { y_ = y; }
+  void setZ(double z) { z_ = z; }
+  void setW(double w) { w_ = w; }
 private:
   double x_{0.0}, y_{0.0}, z_{0.0}, w_{1.0};
 };
@@ -54,7 +61,10 @@ private:
 
 class TransformBroadcaster {
 public:
-  TransformBroadcaster() : broadcaster_(ros::NodeHandle::default_node()) {}
+  // Create the broadcaster from the shared default node created by NodeHandle.
+  TransformBroadcaster()
+      : broadcaster_(std::make_shared<tf2_ros::TransformBroadcaster>(ros::NodeHandle::default_node())) {}
+
   void sendTransform(const StampedTransform &stamped) {
     geometry_msgs::TransformStamped message;
     message.header.stamp = stamped.stamp();

@@ -41,7 +41,7 @@ double last_imu_t = 0;
 
 void predict(const sensor_msgs::ImuConstPtr &imu_msg)
 {
-    double t = imu_msg->header.stamp.toSec();
+    double t = stampToSec(imu_msg->header.stamp);
     if (init_imu)
     {
         latest_time = t;
@@ -105,14 +105,14 @@ getMeasurements()
         if (imu_buf.empty() || feature_buf.empty())
             return measurements;
 
-        if (!(imu_buf.back()->header.stamp.toSec() > feature_buf.front()->header.stamp.toSec() + estimator.td))
+        if (!(stampToSec(imu_buf.back()->header.stamp) > stampToSec(feature_buf.front()->header.stamp) + estimator.td))
         {
             //ROS_WARN("wait for imu, only should happen at the beginning");
             sum_of_wait++;
             return measurements;
         }
 
-        if (!(imu_buf.front()->header.stamp.toSec() < feature_buf.front()->header.stamp.toSec() + estimator.td))
+        if (!(stampToSec(imu_buf.front()->header.stamp) < stampToSec(feature_buf.front()->header.stamp) + estimator.td))
         {
             ROS_WARN("throw img, only should happen at the beginning");
             feature_buf.pop();
@@ -122,7 +122,7 @@ getMeasurements()
         feature_buf.pop();
 
         std::vector<sensor_msgs::ImuConstPtr> IMUs;
-        while (imu_buf.front()->header.stamp.toSec() < img_msg->header.stamp.toSec() + estimator.td)
+        while (stampToSec(imu_buf.front()->header.stamp) < stampToSec(img_msg->header.stamp) + estimator.td)
         {
             IMUs.emplace_back(imu_buf.front());
             imu_buf.pop();
@@ -137,19 +137,19 @@ getMeasurements()
 
 void imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
 {
-    if (imu_msg->header.stamp.toSec() <= last_imu_t)
+    if (stampToSec(imu_msg->header.stamp) <= last_imu_t)
     {
         ROS_WARN("imu message in disorder!");
         return;
     }
-    last_imu_t = imu_msg->header.stamp.toSec();
+    last_imu_t = stampToSec(imu_msg->header.stamp);
 
     m_buf.lock();
     imu_buf.push(imu_msg);
     m_buf.unlock();
     con.notify_one();
 
-    last_imu_t = imu_msg->header.stamp.toSec();
+    last_imu_t = stampToSec(imu_msg->header.stamp);
 
     {
         std::lock_guard<std::mutex> lg(m_state);
@@ -224,8 +224,8 @@ void process()
             double dx = 0, dy = 0, dz = 0, rx = 0, ry = 0, rz = 0;
             for (auto &imu_msg : measurement.first)
             {
-                double t = imu_msg->header.stamp.toSec();
-                double img_t = img_msg->header.stamp.toSec() + estimator.td;
+                double t = stampToSec(imu_msg->header.stamp);
+                double img_t = stampToSec(img_msg->header.stamp) + estimator.td;
                 if (t <= img_t)
                 { 
                     if (current_time < 0)
@@ -273,7 +273,7 @@ void process()
             if (relo_msg != NULL)
             {
                 vector<Vector3d> match_points;
-                double frame_stamp = relo_msg->header.stamp.toSec();
+                double frame_stamp = stampToSec(relo_msg->header.stamp);
                 for (unsigned int i = 0; i < relo_msg->points.size(); i++)
                 {
                     Vector3d u_v_id;
@@ -290,7 +290,7 @@ void process()
                 estimator.setReloFrame(frame_stamp, frame_index, match_points, relo_t, relo_r);
             }
 
-            ROS_DEBUG("processing vision data with stamp %f \n", img_msg->header.stamp.toSec());
+            ROS_DEBUG("processing vision data with stamp %f \n", stampToSec(img_msg->header.stamp));
 
             TicToc t_s;
             map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> image;
@@ -326,7 +326,7 @@ void process()
             pubKeyframe(estimator);
             if (relo_msg != NULL)
                 pubRelocalization(estimator);
-            //ROS_ERROR("end: %f, at %f", img_msg->header.stamp.toSec(), ros::Time::now().toSec());
+            //ROS_ERROR("end: %f, at %f", stampToSec(img_msg->header.stamp), ros::Time::now().toSec());
         }
         m_estimator.unlock();
         m_buf.lock();

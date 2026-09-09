@@ -30,12 +30,12 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
     if(first_image_flag)
     {
         first_image_flag = false;
-        first_image_time = img_msg->header.stamp.toSec();
-        last_image_time = img_msg->header.stamp.toSec();
+        first_image_time = stampToSec(img_msg->header.stamp);
+        last_image_time = stampToSec(img_msg->header.stamp);
         return;
     }
     // detect unstable camera stream
-    if (img_msg->header.stamp.toSec() - last_image_time > 1.0 || img_msg->header.stamp.toSec() < last_image_time)
+    if (stampToSec(img_msg->header.stamp) - last_image_time > 1.0 || stampToSec(img_msg->header.stamp) < last_image_time)
     {
         ROS_WARN("image discontinue! reset the feature tracker!");
         first_image_flag = true; 
@@ -46,15 +46,15 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
         pub_restart.publish(restart_flag);
         return;
     }
-    last_image_time = img_msg->header.stamp.toSec();
+    last_image_time = stampToSec(img_msg->header.stamp);
     // frequency control
-    if (round(1.0 * pub_count / (img_msg->header.stamp.toSec() - first_image_time)) <= FREQ)
+    if (round(1.0 * pub_count / (stampToSec(img_msg->header.stamp) - first_image_time)) <= FREQ)
     {
         PUB_THIS_FRAME = true;
         // reset the frequency control
-        if (abs(1.0 * pub_count / (img_msg->header.stamp.toSec() - first_image_time) - FREQ) < 0.01 * FREQ)
+        if (abs(1.0 * pub_count / (stampToSec(img_msg->header.stamp) - first_image_time) - FREQ) < 0.01 * FREQ)
         {
-            first_image_time = img_msg->header.stamp.toSec();
+            first_image_time = stampToSec(img_msg->header.stamp);
             pub_count = 0;
         }
     }
@@ -83,7 +83,7 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
     {
         ROS_DEBUG("processing camera %d", i);
         if (i != 1 || !STEREO_TRACK)
-            trackerData[i].readImage(ptr->image.rowRange(ROW * i, ROW * (i + 1)), img_msg->header.stamp.toSec());
+            trackerData[i].readImage(ptr->image.rowRange(ROW * i, ROW * (i + 1)), stampToSec(img_msg->header.stamp));
         else
         {
             if (EQUALIZE)
@@ -155,7 +155,7 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
         feature_points->channels.push_back(v_of_point);
         feature_points->channels.push_back(velocity_x_of_point);
         feature_points->channels.push_back(velocity_y_of_point);
-        ROS_DEBUG("publish %f, at %f", feature_points->header.stamp.toSec(), ros::Time::now().toSec());
+        ROS_DEBUG("publish %f, at %f", stampToSec(feature_points->header.stamp), ros::Time::now().toSec());
         // skip the first image; since no optical speed on frist image
         if (!init_pub)
         {

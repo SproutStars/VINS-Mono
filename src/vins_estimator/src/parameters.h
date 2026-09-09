@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ros/ros.h>
+#include <ros2_compat/compat.hpp>
 #include <vector>
 #include <eigen3/Eigen/Dense>
 #include "utility/utility.h"

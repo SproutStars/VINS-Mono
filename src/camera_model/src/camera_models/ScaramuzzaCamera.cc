@@ -1,4 +1,5 @@
 #include "camodocal/camera_models/ScaramuzzaCamera.h"
+#include "camodocal/camera_models/YamlFile.h"
 
 #include <cmath>
 #include <cstdio>
@@ -70,10 +71,12 @@ OCAMCamera::Parameters::readFromYamlFile(const std::string& filename)
         return false;
     }
 
-    if (!fs["model_type"].isNone())
+    cv::FileNode settings = yamlParameters(fs);
+
+    if (!settings["model_type"].isNone())
     {
         std::string sModelType;
-        fs["model_type"] >> sModelType;
+        settings["model_type"] >> sModelType;
 
         if (!boost::iequals(sModelType, "scaramuzza"))
         {
@@ -82,19 +85,19 @@ OCAMCamera::Parameters::readFromYamlFile(const std::string& filename)
     }
 
     m_modelType = SCARAMUZZA;
-    fs["camera_name"] >> m_cameraName;
-    m_imageWidth = static_cast<int>(fs["image_width"]);
-    m_imageHeight = static_cast<int>(fs["image_height"]);
+    settings["camera_name"] >> m_cameraName;
+    m_imageWidth = static_cast<int>(settings["image_width"]);
+    m_imageHeight = static_cast<int>(settings["image_height"]);
 
-    cv::FileNode n = fs["poly_parameters"];
+    cv::FileNode n = settings["poly_parameters"];
     for(int i=0; i < SCARAMUZZA_POLY_SIZE; i++)
         m_poly[i] = static_cast<double>(n[std::string("p") + boost::lexical_cast<std::string>(i)]);
 
-    n = fs["inv_poly_parameters"];
+    n = settings["inv_poly_parameters"];
     for(int i=0; i < SCARAMUZZA_INV_POLY_SIZE; i++)
         m_inv_poly[i] = static_cast<double>(n[std::string("p") + boost::lexical_cast<std::string>(i)]);
 
-    n = fs["affine_parameters"];
+    n = settings["affine_parameters"];
     m_C = static_cast<double>(n["ac"]);
     m_D = static_cast<double>(n["ad"]);
     m_E = static_cast<double>(n["ae"]);

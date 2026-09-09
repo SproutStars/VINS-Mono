@@ -1,4 +1,5 @@
 #include "camodocal/camera_models/CameraFactory.h"
+#include "camodocal/camera_models/YamlFile.h"
 
 #include <boost/algorithm/string.hpp>
 
@@ -96,11 +97,13 @@ CameraFactory::generateCameraFromYamlFile(const std::string& filename)
         return CameraPtr();
     }
 
+    cv::FileNode settings = yamlParameters(fs);
+
     Camera::ModelType modelType = Camera::MEI;
-    if (!fs["model_type"].isNone())
+    if (!settings["model_type"].isNone())
     {
         std::string sModelType;
-        fs["model_type"] >> sModelType;
+        settings["model_type"] >> sModelType;
 
         if (boost::iequals(sModelType, "kannala_brandt"))
         {

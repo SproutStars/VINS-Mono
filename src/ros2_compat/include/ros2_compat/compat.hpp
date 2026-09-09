@@ -16,6 +16,7 @@
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud.hpp>
 #include <sensor_msgs/msg/channel_float32.hpp>
+#include <sensor_msgs/image_encodings.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <geometry_msgs/msg/point32.hpp>
@@ -29,6 +30,7 @@
 
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -45,6 +47,7 @@ namespace std_msgs {
 using Header = msg::Header;
 using Bool = msg::Bool;
 using Float32 = msg::Float32;
+using ColorRGBA = msg::ColorRGBA;
 using BoolConstPtr = Bool::ConstSharedPtr;
 using HeaderConstPtr = Header::ConstSharedPtr;
 }
@@ -59,10 +62,6 @@ using ImuConstPtr = Imu::ConstSharedPtr;
 using ImuPtr = Imu::SharedPtr;
 using PointCloudConstPtr = PointCloud::ConstSharedPtr;
 using PointCloudPtr = PointCloud::SharedPtr;
-namespace image_encodings {
-static constexpr const char *MONO8 = "mono8";
-static constexpr const char *BGR8 = "bgr8";
-}
 }
 namespace nav_msgs {
 using Odometry = msg::Odometry;
@@ -82,24 +81,44 @@ using Marker = msg::Marker;
 using MarkerArray = msg::MarkerArray;
 }
 
+// ---------------------------------------------------------------------------
+// Time helpers: VINS-Mono historically called stamp.toSec() on message
+// headers; ROS 2's builtin_interfaces::msg::Time has no such method, so the
+// short notation is preserved through these helpers.
+// ---------------------------------------------------------------------------
+inline double stampToSec(const builtin_interfaces::msg::Time &stamp)
+{
+  return static_cast<double>(stamp.sec) + 1e-9 * static_cast<double>(stamp.nanosec);
+}
+
+inline builtin_interfaces::msg::Time secToStamp(double seconds)
+{
+  builtin_interfaces::msg::Time stamp;
+  stamp.sec = static_cast<int32_t>(seconds);
+  stamp.nanosec = static_cast<uint32_t>((seconds - static_cast<double>(stamp.sec)) * 1e9);
+  return stamp;
+}
+
+#define ROSCONSOLE_DEFAULT_NAME "ros2_compat"
+
 namespace ros {
 
 class Time {
 public:
   Time() = default;
   explicit Time(double seconds) : seconds_(seconds) {}
-  explicit Time(const builtin_interfaces::msg::Time &time)
+  Time(const builtin_interfaces::msg::Time &time)
       : seconds_(static_cast<double>(time.sec) + 1e-9 * time.nanosec) {}
-  static Time now() {
-    return Time(rclcpp::Clock(RCL_SYSTEM_TIME).now());
-  }
   explicit Time(const rclcpp::Time &time) : seconds_(time.seconds()) {}
+  static Time now() { return Time(rclcpp::Clock(RCL_SYSTEM_TIME).now()); }
   double toSec() const { return seconds_; }
   int32_t sec() const { return static_cast<int32_t>(seconds_); }
   uint32_t nanosec() const {
     const double fractional = seconds_ - static_cast<double>(sec());
     return static_cast<uint32_t>(fractional * 1e9);
   }
+  bool operator<(const Time &other) const { return seconds_ < other.seconds_; }
+  bool operator>(const Time &other) const { return seconds_ > other.seconds_; }
   operator builtin_interfaces::msg::Time() const {
     builtin_interfaces::msg::Time out;
     out.sec = sec();
@@ -158,8 +177,6 @@ public:
       publish(*message);
   }
   explicit operator bool() const { return static_cast<bool>(publish_fn_); }
-private:
-  template <typename MessageT> friend class PublisherFactory;
   template <typename MessageT>
   static Publisher make(const typename rclcpp::Publisher<MessageT>::SharedPtr &publisher) {
     Publisher out;
@@ -168,6 +185,7 @@ private:
     };
     return out;
   }
+private:
   std::function<void(const void *)> publish_fn_;
 };
 
@@ -179,13 +197,54 @@ private:
   std::shared_ptr<void> handle_;
 };
 
+namespace console {
+namespace levels {
+enum Level { Debug, Info, Warn, Error, Fatal };
+}
+inline void set_logger_level(const std::string &name, levels::Level level) {
+  (void)name;
+  (void)level;
+  rclcpp::Logger logger = rclcpp::get_logger(name.empty() ? ROSCONSOLE_DEFAULT_NAME : name);
+  switch (level) {
+    case levels::Debug: logger.set_level(rclcpp::Logger::Level::Debug); break;
+    case levels::Info: logger.set_level(rclcpp::Logger::Level::Info); break;
+    case levels::Warn: logger.set_level(rclcpp::Logger::Level::Warn); break;
+    case levels::Error: logger.set_level(rclcpp::Logger::Level::Error); break;
+    case levels::Fatal: logger.set_level(rclcpp::Logger::Level::Fatal); break;
+  }
+}
+}
+
+inline std::string &node_name_storage();
+inline const std::string &node_name();
+
 class NodeHandle {
 public:
-  explicit NodeHandle(const std::string & /*namespace_name*/ = std::string()) {
+  explicit NodeHandle(const std::string &namespace_name = std::string()) {
     if (!rclcpp::ok())
       rclcpp::init(0, nullptr);
-    node_ = rclcpp::Node::make_shared("vins_mono");
-    default_node_ = node_;
+    if (!default_node_)
+      default_node_ = rclcpp::Node::make_shared(ros::node_name());
+    node_ = default_node_;
+
+    if (namespace_name.empty() || namespace_name == "~") {
+      // ROS 1 private node handle: relative topics live under /node_name/
+      prefix_ = "/" + ros::node_name() + "/";
+    } else if (namespace_name[0] == '/') {
+      prefix_ = namespace_name;
+      if (prefix_.back() != '/')
+        prefix_ += "/";
+    } else {
+      prefix_ = "/" + namespace_name + "/";
+    }
+  }
+
+  // Resolve a topic name the way roscpp did: absolute names pass through,
+  // relative names are prefixed with the private namespace.
+  std::string resolve(const std::string &topic) const {
+    if (topic.empty() || topic[0] == '/')
+      return topic;
+    return prefix_ + topic;
   }
 
   template <typename T>
@@ -209,7 +268,7 @@ public:
 
   template <typename MessageT>
   Publisher advertise(const std::string &topic, size_t depth) {
-    auto publisher = node_->create_publisher<MessageT>(topic, depth);
+    auto publisher = node_->create_publisher<MessageT>(resolve(topic), depth);
     return Publisher::make<MessageT>(publisher);
   }
 
@@ -218,7 +277,7 @@ public:
                        std::function<void(const std::shared_ptr<const MessageT> &)> callback,
                        const TransportHints & = TransportHints()) {
     auto subscription = node_->create_subscription<MessageT>(
-        topic, rclcpp::QoS(depth), std::move(callback));
+        resolve(topic), rclcpp::QoS(depth), std::move(callback));
     auto handle = std::shared_ptr<void>(subscription, subscription.get());
     subscriptions_.push_back(handle);
     return Subscriber(std::move(handle));
@@ -231,23 +290,41 @@ public:
       std::function<void(const std::shared_ptr<const MessageT> &)>(callback));
   }
 
+  template <typename MessageT>
+  Subscriber subscribe(const std::string &topic, size_t depth,
+                       void (*callback)(const std::shared_ptr<const MessageT> &),
+                       const TransportHints &hints) {
+    return subscribe<MessageT>(topic, depth,
+      std::function<void(const std::shared_ptr<const MessageT> &)>(callback), hints);
+  }
+
   void shutdown() { rclcpp::shutdown(); }
   rclcpp::Node::SharedPtr node() const { return node_; }
 
   static rclcpp::Node::SharedPtr default_node() { return default_node_; }
 private:
   rclcpp::Node::SharedPtr node_;
+  std::string prefix_;
   std::vector<std::shared_ptr<void>> subscriptions_;
   inline static rclcpp::Node::SharedPtr default_node_{};
 };
 
-inline void init(int &argc, char **argv, const std::string & /*name*/) {
+// The node name from ros::init; all NodeHandles created afterwards share it.
+inline std::string &node_name_storage() {
+  static std::string storage = "node";
+  return storage;
+}
+inline const std::string &node_name() { return node_name_storage(); }
+
+inline void set_node_name(const std::string &name) {
+  if (!name.empty())
+    node_name_storage() = name;
+}
+
+inline void init(int &argc, char **argv, const std::string &name) {
+  set_node_name(name);
   if (!rclcpp::ok())
     rclcpp::init(argc, argv);
-}
-inline void init(int argc, char **argv, const std::string &name) {
-  int mutable_argc = argc;
-  init(mutable_argc, argv, name);
 }
 inline void spin() {
   if (NodeHandle::default_node())
@@ -273,14 +350,14 @@ inline std::string getPath(const std::string &package_name) {
 }  // namespace ros
 
 // Lightweight logging macros retain printf-style formatting used by VINS.
-#define ROS_INFO(...) do { std::fprintf(stdout, "[INFO] "); std::fprintf(stdout, __VA_ARGS__); std::fprintf(stdout, "\n"); } while (0)
-#define ROS_WARN(...) do { std::fprintf(stderr, "[WARN] "); std::fprintf(stderr, __VA_ARGS__); std::fprintf(stderr, "\n"); } while (0)
-#define ROS_ERROR(...) do { std::fprintf(stderr, "[ERROR] "); std::fprintf(stderr, __VA_ARGS__); std::fprintf(stderr, "\n"); } while (0)
-#define ROS_DEBUG(...) do { if (false) { std::fprintf(stdout, __VA_ARGS__); } } while (0)
+#define ROS_INFO(...) RCLCPP_INFO(rclcpp::get_logger(ROSCONSOLE_DEFAULT_NAME), __VA_ARGS__)
+#define ROS_WARN(...) RCLCPP_WARN(rclcpp::get_logger(ROSCONSOLE_DEFAULT_NAME), __VA_ARGS__)
+#define ROS_ERROR(...) RCLCPP_ERROR(rclcpp::get_logger(ROSCONSOLE_DEFAULT_NAME), __VA_ARGS__)
+#define ROS_DEBUG(...) RCLCPP_DEBUG(rclcpp::get_logger(ROSCONSOLE_DEFAULT_NAME), __VA_ARGS__)
 #define ROS_INFO_STREAM(value) do { std::ostringstream _ros_stream; _ros_stream << value; ROS_INFO("%s", _ros_stream.str().c_str()); } while (0)
 #define ROS_WARN_STREAM(value) do { std::ostringstream _ros_stream; _ros_stream << value; ROS_WARN("%s", _ros_stream.str().c_str()); } while (0)
 #define ROS_ERROR_STREAM(value) do { std::ostringstream _ros_stream; _ros_stream << value; ROS_ERROR("%s", _ros_stream.str().c_str()); } while (0)
-#define ROS_DEBUG_STREAM(value) do { (void)sizeof(value); } while (0)
+#define ROS_DEBUG_STREAM(value) do { std::ostringstream _ros_stream; _ros_stream << value; ROS_DEBUG("%s", _ros_stream.str().c_str()); } while (0)
 #define ROS_ASSERT(condition) do { if (!(condition)) { ROS_ERROR("assertion failed: %s", #condition); std::abort(); } } while (0)
 #define ROS_ASSERT_MSG(condition, ...) do { if (!(condition)) { ROS_ERROR(__VA_ARGS__); std::abort(); } } while (0)
 #define ROS_BREAK() do { std::abort(); } while (0)

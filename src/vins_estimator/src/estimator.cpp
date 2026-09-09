@@ -132,9 +132,9 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
     ROS_DEBUG("number of feature: %d", f_manager.getFeatureCount());
     Headers[frame_count] = header;
 
-    ImageFrame imageframe(image, header.stamp.toSec());
+    ImageFrame imageframe(image, stampToSec(header.stamp));
     imageframe.pre_integration = tmp_pre_integration;
-    all_image_frame.insert(make_pair(header.stamp.toSec(), imageframe));
+    all_image_frame.insert(make_pair(stampToSec(header.stamp), imageframe));
     tmp_pre_integration = new IntegrationBase{acc_0, gyr_0, Bas[frame_count], Bgs[frame_count]};
 
     if(ESTIMATE_EXTRINSIC == 2)
@@ -160,10 +160,10 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
         if (frame_count == WINDOW_SIZE)
         {
             bool result = false;
-            if( ESTIMATE_EXTRINSIC != 2 && (header.stamp.toSec() - initial_timestamp) > 0.1)
+            if( ESTIMATE_EXTRINSIC != 2 && (stampToSec(header.stamp) - initial_timestamp) > 0.1)
             {
                result = initialStructure();
-               initial_timestamp = header.stamp.toSec();
+               initial_timestamp = stampToSec(header.stamp);
             }
             if(result)
             {
@@ -291,7 +291,7 @@ bool Estimator::initialStructure()
     {
         // provide initial guess
         cv::Mat r, rvec, t, D, tmp_r;
-        if((frame_it->first) == Headers[i].stamp.toSec())
+        if((frame_it->first) == stampToSec(Headers[i].stamp))
         {
             frame_it->second.is_key_frame = true;
             frame_it->second.R = Q[i].toRotationMatrix() * RIC[0].transpose();
@@ -299,7 +299,7 @@ bool Estimator::initialStructure()
             i++;
             continue;
         }
-        if((frame_it->first) > Headers[i].stamp.toSec())
+        if((frame_it->first) > stampToSec(Headers[i].stamp))
         {
             i++;
         }
@@ -376,11 +376,11 @@ bool Estimator::visualInitialAlign()
     // change state
     for (int i = 0; i <= frame_count; i++)
     {
-        Matrix3d Ri = all_image_frame[Headers[i].stamp.toSec()].R;
-        Vector3d Pi = all_image_frame[Headers[i].stamp.toSec()].T;
+        Matrix3d Ri = all_image_frame[stampToSec(Headers[i].stamp)].R;
+        Vector3d Pi = all_image_frame[stampToSec(Headers[i].stamp)].T;
         Ps[i] = Pi;
         Rs[i] = Ri;
-        all_image_frame[Headers[i].stamp.toSec()].is_key_frame = true;
+        all_image_frame[stampToSec(Headers[i].stamp)].is_key_frame = true;
     }
 
     VectorXd dep = f_manager.getDepthVector();
@@ -1007,7 +1007,7 @@ void Estimator::slideWindow()
     TicToc t_margin;
     if (marginalization_flag == MARGIN_OLD)
     {
-        double t_0 = Headers[0].stamp.toSec();
+        double t_0 = stampToSec(Headers[0].stamp);
         back_R0 = Rs[0];
         back_P0 = Ps[0];
         if (frame_count == WINDOW_SIZE)
@@ -1135,7 +1135,7 @@ void Estimator::setReloFrame(double _frame_stamp, int _frame_index, vector<Vecto
     prev_relo_r = _relo_r;
     for(int i = 0; i < WINDOW_SIZE; i++)
     {
-        if(relo_frame_stamp == Headers[i].stamp.toSec())
+        if(relo_frame_stamp == stampToSec(Headers[i].stamp))
         {
             relo_frame_local_index = i;
             relocalization_info = 1;

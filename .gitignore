@@ -1,5 +1,4 @@
 *~
-*.rviz
 ex_calib_result.yaml
 vins_result.csv
 iphone.launch
@@ -12,3 +11,4 @@ test.launch
 build/
 install/
 log/
+output/

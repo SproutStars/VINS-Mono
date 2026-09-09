@@ -11,7 +11,7 @@
 #include <opencv2/highgui/highgui.hpp>
 
 #include <cv_bridge/cv_bridge.h>
-#include <image_transport/image_transport.h>
+#include <image_transport/image_transport.hpp>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/image_encodings.h>
 
@@ -40,7 +40,7 @@ int main(int argc, char **argv)
     ros::Publisher pub_ap = n.advertise<sensor_msgs::PointCloud>("ap", 1000);
     ros::Publisher pub_line = n.advertise<visualization_msgs::Marker>("sar", 1000);
 
-    image_transport::ImageTransport it(n);
+    image_transport::ImageTransport it(n.node());
     image_transport::Publisher pub_image;
     pub_image = it.advertise("tracked_image", 1000);
 
@@ -162,7 +162,7 @@ int main(int argc, char **argv)
         imu.orientation.w = q.w();
 
         pub_imu.publish(imu);
-        //ROS_INFO("publish imu data with stamp %lf", imu.header.stamp.toSec());
+        //ROS_INFO("publish imu data with stamp %lf", stampToSec(imu.header.stamp));
 
         //publish wifi data
         if (publish_count % generator.IMU_PER_WIFI == 0)
@@ -246,7 +246,7 @@ int main(int argc, char **argv)
             feature.channels.push_back(p_y);
             feature.channels.push_back(p_z);
             pub_feature.publish(feature);
-            ROS_INFO("publish image data with stamp %lf", feature.header.stamp.toSec());
+            ROS_INFO("publish image data with stamp %lf", stampToSec(feature.header.stamp));
             for (int k = 0; k < DataGenerator::NUMBER_OF_CAMERA; k++)
             {
                 char name[] = "camera 1";

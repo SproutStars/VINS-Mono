@@ -1,43 +1,28 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.8)
 project(ar_demo)
 
-set(CMAKE_BUILD_TYPE "Release")
-set(CMAKE_CXX_FLAGS "-std=c++11 -DEIGEN_DONT_PARALLELIZE")
-#-DEIGEN_USE_MKL_ALL")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+endif()
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+add_compile_options(-O3 -Wall -Wno-deprecated-declarations)
 
-find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  rospy
-  std_msgs
-  image_transport
-  sensor_msgs
-  cv_bridge
-  message_filters
-  camera_model
-)
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(image_transport REQUIRED)
+find_package(camera_model REQUIRED)
+find_package(ros2_compat REQUIRED)
 find_package(OpenCV REQUIRED)
-
-catkin_package(
-
-)
-
-
-include_directories(
-  ${catkin_INCLUDE_DIRS}
-)
-
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
-find_package(Eigen3)
-include_directories(
-  ${catkin_INCLUDE_DIRS}
-  ${EIGEN3_INCLUDE_DIR}
-)
+find_package(Eigen3 REQUIRED)
 
 add_executable(ar_demo_node src/ar_demo_node.cpp)
+target_include_directories(ar_demo_node PRIVATE src ${EIGEN3_INCLUDE_DIRS})
+ament_target_dependencies(ar_demo_node rclcpp cv_bridge image_transport camera_model ros2_compat)
+target_link_libraries(ar_demo_node ${OpenCV_LIBS})
 
- target_link_libraries(ar_demo_node
-   ${catkin_LIBRARIES} ${OpenCV_LIBS}
- )
+install(TARGETS ar_demo_node DESTINATION lib/${PROJECT_NAME})
 
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 
+ament_package()

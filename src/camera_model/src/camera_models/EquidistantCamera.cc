@@ -1,4 +1,5 @@
 #include "camodocal/camera_models/EquidistantCamera.h"
+#include "camodocal/camera_models/YamlFile.h"
 
 #include <cmath>
 #include <cstdio>
@@ -152,10 +153,12 @@ EquidistantCamera::Parameters::readFromYamlFile(const std::string& filename)
         return false;
     }
 
-    if (!fs["model_type"].isNone())
+    cv::FileNode settings = yamlParameters(fs);
+
+    if (!settings["model_type"].isNone())
     {
         std::string sModelType;
-        fs["model_type"] >> sModelType;
+        settings["model_type"] >> sModelType;
 
         if (sModelType.compare("KANNALA_BRANDT") != 0)
         {
@@ -164,11 +167,11 @@ EquidistantCamera::Parameters::readFromYamlFile(const std::string& filename)
     }
 
     m_modelType = KANNALA_BRANDT;
-    fs["camera_name"] >> m_cameraName;
-    m_imageWidth = static_cast<int>(fs["image_width"]);
-    m_imageHeight = static_cast<int>(fs["image_height"]);
+    settings["camera_name"] >> m_cameraName;
+    m_imageWidth = static_cast<int>(settings["image_width"]);
+    m_imageHeight = static_cast<int>(settings["image_height"]);
 
-    cv::FileNode n = fs["projection_parameters"];
+    cv::FileNode n = settings["projection_parameters"];
     m_k2 = static_cast<double>(n["k2"]);
     m_k3 = static_cast<double>(n["k3"]);
     m_k4 = static_cast<double>(n["k4"]);

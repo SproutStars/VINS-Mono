@@ -1,0 +1,70 @@
+%YAML 1.1
+---
+/**:
+  ros__parameters:
+    # Common parameters
+    imu_topic: "/imu0"
+    image_topic: "/cam0/image_raw"
+    output_path: package://vins_estimator/../../output/
+
+    # Camera calibration
+    model_type: "PINHOLE"
+    camera_name: "camera"
+    image_width: 752
+    image_height: 480
+    distortion_parameters:
+      k1: -2.917e-01
+      k2: 8.228e-02
+      p1: 5.333e-05
+      p2: -1.578e-04
+    projection_parameters:
+      fx: 4.616e+02
+      fy: 4.603e+02
+      cx: 3.630e+02
+      cy: 2.481e+02
+
+    # Extrinsic parameter between IMU and camera.
+    # 0: accurate extrinsics; use imu^R_cam and imu^T_cam without changing them.
+    # 1: initial extrinsics; optimize around the initial guess.
+    # 2: unknown extrinsics; calibrate them during startup.
+    estimate_extrinsic: 2
+
+    # Feature tracker parameters
+    max_cnt: 150
+    min_dist: 30
+    freq: 10
+    F_threshold: 1.0
+    show_track: 1
+    equalize: 1
+    fisheye: 0
+
+    # Optimization parameters
+    max_solver_time: 0.04
+    max_num_iterations: 8
+    keyframe_parallax: 10.0
+
+    # IMU parameters
+    acc_n: 0.2
+    gyr_n: 0.02
+    acc_w: 0.0002
+    gyr_w: 2.0e-5
+    g_norm: 9.81007
+
+    # Loop closure parameters
+    loop_closure: 1
+    load_previous_pose_graph: 0
+    fast_relocalization: 0
+    pose_graph_save_path: "/home/tony-ws1/output/pose_graph/"
+
+    # Unsynchronized sensor parameters
+    estimate_td: 0
+    td: 0.0
+
+    # Rolling shutter parameters
+    rolling_shutter: 0
+    rolling_shutter_tr: 0.0
+
+    # Visualization parameters
+    save_image: 1
+    visualize_imu_forward: 0
+    visualize_camera_size: 0.4

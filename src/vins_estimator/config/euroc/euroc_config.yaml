@@ -1,0 +1,78 @@
+%YAML 1.1
+---
+/**:
+   ros__parameters:
+      # Common parameters
+      imu_topic: "/imu0"
+      image_topic: "/cam0/image_raw"
+      output_path: ./output/
+
+      # Camera calibration
+      model_type: "PINHOLE"
+      camera_name: "camera"
+      image_width: 752
+      image_height: 480
+      distortion_parameters:
+         k1: -2.917e-01
+         k2: 8.228e-02
+         p1: 5.333e-05
+         p2: -1.578e-04
+      projection_parameters:
+         fx: 4.616e+02
+         fy: 4.603e+02
+         cx: 3.630e+02
+         cy: 2.481e+02
+
+      # Extrinsic parameter between IMU and camera.
+      # 0: accurate extrinsics; use imu^R_cam and imu^T_cam without changing them.
+      # 1: initial extrinsics; optimize around the initial guess.
+      # 2: unknown extrinsics; calibrate them during startup.
+      estimate_extrinsic: 0
+
+      # Rotation from camera frame to IMU frame, imu^R_cam.
+      # ROS 2 parameters support a flat array for matrix values.
+      extrinsicRotation: [0.0148655429818, -0.999880929698, 0.00414029679422,
+                           0.999557249008, 0.0149672133247, 0.025715529948,
+                           -0.0257744366974, 0.00375618835797, 0.999660727178]
+      # Translation from camera frame to IMU frame, imu^T_cam.
+      extrinsicTranslation: [-0.0216401454975, -0.064676986768, 0.00981073058949]
+
+      # Feature tracker parameters
+      max_cnt: 150
+      min_dist: 30
+      freq: 10
+      F_threshold: 1.0
+      show_track: 1
+      equalize: 1
+      fisheye: 0
+
+      # Optimization parameters
+      max_solver_time: 0.04
+      max_num_iterations: 8
+      keyframe_parallax: 10.0
+
+      # IMU parameters
+      acc_n: 0.08
+      gyr_n: 0.004
+      acc_w: 0.00004
+      gyr_w: 2.0e-6
+      g_norm: 9.81007
+
+      # Loop closure parameters
+      loop_closure: 1
+      load_previous_pose_graph: 0
+      fast_relocalization: 0
+      pose_graph_save_path: ./output/pose_graph/
+
+      # Unsynchronized sensor parameters
+      estimate_td: 0
+      td: 0.0
+
+      # Rolling shutter parameters
+      rolling_shutter: 0
+      rolling_shutter_tr: 0.0
+
+      # Visualization parameters
+      save_image: 1
+      visualize_imu_forward: 0
+      visualize_camera_size: 0.4
