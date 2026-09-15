@@ -33,14 +33,33 @@ EigenQuaternionParameterization::Plus(const double* x,
 }
 
 bool
-EigenQuaternionParameterization::ComputeJacobian(const double* x,
-                                                 double* jacobian) const
+EigenQuaternionParameterization::PlusJacobian(const double* x,
+                                              double* jacobian) const
 {
     jacobian[0] =  x[3]; jacobian[1]  =  x[2]; jacobian[2]  = -x[1];  // NOLINT
     jacobian[3] = -x[2]; jacobian[4]  =  x[3]; jacobian[5]  =  x[0];  // NOLINT
     jacobian[6] =  x[1]; jacobian[7] = -x[0]; jacobian[8] =  x[3];  // NOLINT
     jacobian[9] = -x[0]; jacobian[10]  = -x[1]; jacobian[11]  = -x[2];  // NOLINT
     return true;
+}
+
+bool
+EigenQuaternionParameterization::Minus(const double* y,
+                                       const double* x,
+                                       double* y_minus_x) const
+{
+    // Plus() is a left multiplication with the incremental quaternion, which
+    // is exactly the convention implemented by ceres::EigenQuaternionManifold.
+    static const ceres::EigenQuaternionManifold manifold;
+    return manifold.Minus(y, x, y_minus_x);
+}
+
+bool
+EigenQuaternionParameterization::MinusJacobian(const double* x,
+                                               double* jacobian) const
+{
+    static const ceres::EigenQuaternionManifold manifold;
+    return manifold.MinusJacobian(x, jacobian);
 }
 
 }

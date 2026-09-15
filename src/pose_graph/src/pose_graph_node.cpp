@@ -7,7 +7,7 @@
 #include <sensor_msgs/image_encodings.h>
 #include <visualization_msgs/Marker.h>
 #include <std_msgs/Bool.h>
-#include <cv_bridge/cv_bridge.h>
+#include <cv_bridge/cv_bridge.hpp>
 #include <iostream>
 #include <ros/package.h>
 #include <mutex>

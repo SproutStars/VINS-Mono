@@ -4,7 +4,7 @@
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/Imu.h>
 #include <std_msgs/Bool.h>
-#include <cv_bridge/cv_bridge.h>
+#include <cv_bridge/cv_bridge.hpp>
 #include <message_filters/subscriber.h>
 
 #include "feature_tracker.h"
