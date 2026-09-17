@@ -1,5 +1,8 @@
 #include "camodocal/camera_models/CameraFactory.h"
+#include "camodocal/camera_models/CameraInfoFile.h"
 #include "camodocal/camera_models/YamlFile.h"
+
+#include <iostream>
 
 #include <boost/algorithm/string.hpp>
 
@@ -13,6 +16,34 @@
 
 namespace camodocal
 {
+
+namespace
+{
+
+// Builds a pinhole camera from a ROS sensor_msgs/CameraInfo style calibration
+// (camera_matrix + OpenCV distortion coefficients).
+CameraPtr createCameraFromCameraInfo(const CameraInfoData& info)
+{
+    PinholeCameraPtr camera(new PinholeCamera);
+
+    PinholeCamera::Parameters params = camera->getParameters();
+    params.cameraName() = info.camera_name.empty() ? std::string("camera") : info.camera_name;
+    params.imageWidth() = info.image_width;
+    params.imageHeight() = info.image_height;
+    params.k1() = info.k1;
+    params.k2() = info.k2;
+    params.p1() = info.p1;
+    params.p2() = info.p2;
+    params.fx() = info.fx;
+    params.fy() = info.fy;
+    params.cx() = info.cx;
+    params.cy() = info.cy;
+    camera->setParameters(params);
+
+    return camera;
+}
+
+}  // namespace
 
 boost::shared_ptr<CameraFactory> CameraFactory::m_instance;
 
@@ -90,7 +121,23 @@ CameraFactory::generateCamera(Camera::ModelType modelType,
 CameraPtr
 CameraFactory::generateCameraFromYamlFile(const std::string& filename)
 {
-    cv::FileStorage fs(filename, cv::FileStorage::READ);
+    // ROS sensor_msgs/CameraInfo style files are detected and converted to the
+    // equivalent pinhole model, so callers can pass either file format.
+    CameraInfoData cameraInfo;
+    if (readCameraInfoFile(filename, cameraInfo))
+        return createCameraFromCameraInfo(cameraInfo);
+
+    cv::FileStorage fs;
+    try
+    {
+        fs.open(filename, cv::FileStorage::READ);
+    }
+    catch (const cv::Exception& e)
+    {
+        std::cerr << "# ERROR: cannot parse camera calibration file " << filename
+                  << ": " << e.what() << std::endl;
+        return CameraPtr();
+    }
 
     if (!fs.isOpened())
     {

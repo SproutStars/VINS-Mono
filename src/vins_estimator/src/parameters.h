@@ -8,7 +8,7 @@
 #include <opencv2/core/eigen.hpp>
 #include <fstream>
 
-const double FOCAL_LENGTH = 460.0;
+extern double FOCAL_LENGTH;
 const int WINDOW_SIZE = 10;
 const int NUM_OF_CAM = 1;
 const int NUM_OF_F = 1000;

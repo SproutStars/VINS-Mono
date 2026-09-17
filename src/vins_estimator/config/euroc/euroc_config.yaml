@@ -9,19 +9,23 @@
 
       # Camera calibration
       model_type: "PINHOLE"
-      camera_name: "camera"
-      image_width: 752
-      image_height: 480
+      camera_name: "narrow_stereo"
+      # Optional: read the intrinsics directly from a ROS camera_info yaml file.
+      # Relative paths are resolved against this file's directory, then vins_folder.
+      # When the file is readable it overrides the intrinsic parameters below.
+      camera_info_file: "camera_info.yaml"
+      image_width: 1440
+      image_height: 1080
       distortion_parameters:
-         k1: -2.917e-01
-         k2: 8.228e-02
-         p1: 5.333e-05
-         p2: -1.578e-04
+         k1: -6.0615e-02
+         k2: -1.0496e-02
+         p1: -1.570e-03
+         p2: -6.12e-04
       projection_parameters:
-         fx: 4.616e+02
-         fy: 4.603e+02
-         cx: 3.630e+02
-         cy: 2.481e+02
+         fx: 1.80863885e+03
+         fy: 1.80688425e+03
+         cx: 7.3676199e+02
+         cy: 5.6972947e+02
 
       # Extrinsic parameter between IMU and camera.
       # 0: accurate extrinsics; use imu^R_cam and imu^T_cam without changing them.

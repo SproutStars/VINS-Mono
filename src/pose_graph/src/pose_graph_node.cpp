@@ -13,6 +13,7 @@
 #include <mutex>
 #include <queue>
 #include <thread>
+#include <cmath>
 #include <eigen3/Eigen/Dense>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/eigen.hpp>
@@ -21,6 +22,7 @@
 #include "pose_graph.h"
 #include "utility/CameraPoseVisualization.h"
 #include "parameters.h"
+#include "camodocal/camera_models/CameraInfoFile.h"
 #include "camodocal/camera_models/YamlFile.h"
 #define SKIP_FIRST_CNT 10
 using namespace std;
@@ -45,6 +47,7 @@ int VISUALIZATION_SHIFT_X;
 int VISUALIZATION_SHIFT_Y;
 int ROW;
 int COL;
+double FOCAL_LENGTH;
 int DEBUG_IMAGE;
 int VISUALIZE_IMU_FORWARD;
 int LOOP_CLOSURE;
@@ -473,6 +476,46 @@ int main(int argc, char **argv)
 
     cv::FileNode settings = camodocal::yamlParameters(fsSettings);
 
+    // Optional: read the intrinsics directly from a ROS camera_info yaml file.
+    // When the file is readable it takes precedence over the values below.
+    std::string camera_info_file;
+    if (!settings["camera_info_file"].empty())
+        settings["camera_info_file"] >> camera_info_file;
+
+    std::string vins_folder;
+    n.getParam("vins_folder", vins_folder);
+
+    const std::string camera_info_path =
+        camodocal::resolveCameraInfoPath(config_file, camera_info_file, vins_folder);
+    camodocal::CameraInfoData camera_info;
+    const bool use_camera_info =
+        !camera_info_path.empty() && camodocal::readCameraInfoFile(camera_info_path, camera_info);
+    const std::string calibration_file = use_camera_info ? camera_info_path : config_file;
+    if (use_camera_info)
+        cout << "Using camera intrinsics from " << camera_info_path << endl;
+    else if (!camera_info_path.empty())
+        cout << "Failed to read camera_info file " << camera_info_path
+             << ", using intrinsics from " << config_file << endl;
+
+    // Focal length is used to scale the normalized coordinates back to pixels.
+    FOCAL_LENGTH = 460.0;
+    if (use_camera_info && camera_info.fx > 0.0 && camera_info.fy > 0.0)
+    {
+        FOCAL_LENGTH = std::sqrt(camera_info.fx * camera_info.fy);
+    }
+    else
+    {
+        cv::FileNode projection = settings["projection_parameters"];
+        if (!projection.empty())
+        {
+            const double fx = projection["fx"];
+            const double fy = projection["fy"];
+            if (fx > 0.0 && fy > 0.0)
+                FOCAL_LENGTH = std::sqrt(fx * fy);
+        }
+    }
+    cout << "FOCAL_LENGTH: " << FOCAL_LENGTH << endl;
+
     double camera_visual_size = settings["visualize_camera_size"];
     cameraposevisual.setScale(camera_visual_size);
     cameraposevisual.setLineWidth(camera_visual_size / 10.0);
@@ -485,6 +528,13 @@ int main(int argc, char **argv)
     {
         ROW = settings["image_height"];
         COL = settings["image_width"];
+        if (use_camera_info)
+        {
+            if (camera_info.image_height > 0)
+                ROW = camera_info.image_height;
+            if (camera_info.image_width > 0)
+                COL = camera_info.image_width;
+        }
         std::string pkg_path = ros::package::getPath("pose_graph");
         string vocabulary_file = pkg_path + "/brief_k10L6.bin";
         cout << "vocabulary_file" << vocabulary_file << endl;
@@ -492,7 +542,7 @@ int main(int argc, char **argv)
 
         BRIEF_PATTERN_FILE = pkg_path + "/brief_pattern.yml";
         cout << "BRIEF_PATTERN_FILE" << BRIEF_PATTERN_FILE << endl;
-        m_camera = camodocal::CameraFactory::instance()->generateCameraFromYamlFile(config_file.c_str());
+        m_camera = camodocal::CameraFactory::instance()->generateCameraFromYamlFile(calibration_file.c_str());
 
         settings["image_topic"] >> IMAGE_TOPIC;
         settings["pose_graph_save_path"] >> POSE_GRAPH_SAVE_PATH;

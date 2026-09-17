@@ -1,5 +1,8 @@
 #include "parameters.h"
+#include "camodocal/camera_models/CameraInfoFile.h"
 #include "camodocal/camera_models/YamlFile.h"
+
+#include <cmath>
 
 double INIT_DEPTH;
 double MIN_PARALLAX;
@@ -22,6 +25,7 @@ std::string EX_CALIB_RESULT_PATH;
 std::string VINS_RESULT_PATH;
 std::string IMU_TOPIC;
 double ROW, COL;
+double FOCAL_LENGTH;
 double TD, TR;
 
 template <typename T>
@@ -52,6 +56,46 @@ void readParameters(ros::NodeHandle &n)
 
     cv::FileNode settings = camodocal::yamlParameters(fsSettings);
 
+    // Optional: read the intrinsics directly from a ROS camera_info yaml file.
+    // When the file is readable it takes precedence over the values below.
+    std::string camera_info_file;
+    if (!settings["camera_info_file"].empty())
+        settings["camera_info_file"] >> camera_info_file;
+
+    std::string vins_folder;
+    n.getParam("vins_folder", vins_folder);
+
+    const std::string camera_info_path =
+        camodocal::resolveCameraInfoPath(config_file, camera_info_file, vins_folder);
+    camodocal::CameraInfoData camera_info;
+    const bool use_camera_info =
+        !camera_info_path.empty() && camodocal::readCameraInfoFile(camera_info_path, camera_info);
+    if (use_camera_info)
+        ROS_INFO_STREAM("Using camera intrinsics from " << camera_info_path);
+    else if (!camera_info_path.empty())
+        ROS_WARN_STREAM("Failed to read camera_info file " << camera_info_path
+                        << ", using intrinsics from " << config_file);
+
+    // Focal length scales the visual residual weights and the pixel based
+    // thresholds, so derive it from the calibrated projection parameters.
+    FOCAL_LENGTH = 460.0;
+    if (use_camera_info && camera_info.fx > 0.0 && camera_info.fy > 0.0)
+    {
+        FOCAL_LENGTH = std::sqrt(camera_info.fx * camera_info.fy);
+    }
+    else
+    {
+        cv::FileNode projection = settings["projection_parameters"];
+        if (!projection.empty())
+        {
+            const double fx = projection["fx"];
+            const double fy = projection["fy"];
+            if (fx > 0.0 && fy > 0.0)
+                FOCAL_LENGTH = std::sqrt(fx * fy);
+        }
+    }
+    ROS_INFO("FOCAL_LENGTH: %f", FOCAL_LENGTH);
+
     settings["imu_topic"] >> IMU_TOPIC;
 
     SOLVER_TIME = settings["max_solver_time"];
@@ -77,6 +121,13 @@ void readParameters(ros::NodeHandle &n)
     G.z() = settings["g_norm"];
     ROW = settings["image_height"];
     COL = settings["image_width"];
+    if (use_camera_info)
+    {
+        if (camera_info.image_height > 0)
+            ROW = camera_info.image_height;
+        if (camera_info.image_width > 0)
+            COL = camera_info.image_width;
+    }
     ROS_INFO("ROW: %f COL: %f ", ROW, COL);
 
     ESTIMATE_EXTRINSIC = settings["estimate_extrinsic"];

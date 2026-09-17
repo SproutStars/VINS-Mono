@@ -3,8 +3,7 @@ Panels:
     Help Height: 0
     Name: Displays
     Property Tree Widget:
-      Expanded:
-        - /VIO1/TF1/Status1
+      Expanded: ~
       Splitter Ratio: 0.4651159942150116
     Tree Height: 741
   - Class: rviz_common/Selection
@@ -179,7 +178,7 @@ Visualization Manager:
           Name: current_point
           Position Transformer: XYZ
           Selectable: true
-          Size (Pixels): 2
+          Size (Pixels): 3
           Size (m): 0.009999999776482582
           Style: Points
           Topic:
@@ -201,10 +200,10 @@ Visualization Manager:
           Axis: Z
           Channel Name: intensity
           Class: rviz_default_plugins/PointCloud
-          Color: 255; 255; 255
+          Color: 246; 97; 81
           Color Transformer: FlatColor
           Decay Time: 3000
-          Enabled: false
+          Enabled: true
           Invert Rainbow: true
           Max Color: 0; 0; 0
           Max Intensity: 4096
@@ -213,7 +212,7 @@ Visualization Manager:
           Name: history_point
           Position Transformer: XYZ
           Selectable: true
-          Size (Pixels): 1
+          Size (Pixels): 2
           Size (m): 0.5
           Style: Points
           Topic:
@@ -225,7 +224,7 @@ Visualization Manager:
             Value: /vins_estimator/history_cloud
           Use Fixed Frame: true
           Use rainbow: false
-          Value: false
+          Value: true
         - Class: rviz_default_plugins/TF
           Enabled: true
           Filter (blacklist): ""
@@ -233,16 +232,6 @@ Visualization Manager:
           Frame Timeout: 15
           Frames:
             All Enabled: true
-            Link1:
-              Value: true
-            Link2:
-              Value: true
-            Link5:
-              Value: true
-            Link6:
-              Value: true
-            base_link:
-              Value: true
             body:
               Value: true
             camera:
@@ -586,25 +575,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/XYOrbit
-      Distance: 33.011314392089844
+      Distance: 43.38361358642578
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -4.257075309753418
-        Y: 5.529433250427246
-        Z: 0.00012564248754642904
+        X: 4.62339973449707
+        Y: -1.6659775972366333
+        Z: 0.00011795348837040365
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5047972202301025
+      Pitch: 0.3347974121570587
       Target Frame: <Fixed Frame>
       Value: XYOrbit (rviz)
-      Yaw: 0.22906380891799927
+      Yaw: 0.0071762846782803535
     Saved: ~
 Window Geometry:
   Displays:
