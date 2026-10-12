@@ -27,7 +27,12 @@ def generate_launch_description():
             parameters=[config_path, {
                 'config_file': config_path,
                 'vins_folder': vins_folder
-            }]),
+            }],
+            ros_arguments=[
+                '--ros-args',
+                '--log-level', 'INFO'
+            ],
+            ),
         Node(package='vins_estimator',
             executable='vins_estimator',
             name='vins_estimator',

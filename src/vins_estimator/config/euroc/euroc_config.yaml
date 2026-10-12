@@ -2,81 +2,133 @@
 ---
 /**:
    ros__parameters:
-      # Common parameters
-      imu_topic: "/imu0"
-      image_topic: "/cam0/image_raw"
+      # ==================== 通用参数 ====================
+      # IMU 数据话题，消息类型为 sensor_msgs/Imu，需包含角速度和线加速度。
+      imu_topic: "/drone1/sensors/imu"
+      # 单目图像话题，消息类型为 sensor_msgs/Image；程序内部会转换为灰度图。
+      image_topic: "/drone1/left_camera/color/image_raw"
+      # 输出目录：VIO 轨迹写入 vins_result_no_loop.csv；开启回环后还会写入
+      # vins_result_loop.csv。相对路径相对于节点进程的工作目录，目录会自动创建。
       output_path: ./output/
 
-      # Camera calibration
+      # ==================== 相机标定 ====================
+      # 相机模型类型，可选 PINHOLE、MEI、KANNALA_BRANDT、SCARAMUZZA。
+      # EuroC 使用 PINHOLE，且下方畸变参数和投影参数需与该模型匹配。
       model_type: "PINHOLE"
-      camera_name: "narrow_stereo"
-      # Optional: read the intrinsics directly from a ROS camera_info yaml file.
-      # Relative paths are resolved against this file's directory, then vins_folder.
-      # When the file is readable it overrides the intrinsic parameters below.
-      camera_info_file: "camera_info.yaml"
-      image_width: 1440
-      image_height: 1080
+      # 相机名称，仅用于标定信息和日志标识。
+      camera_name: "camera"
+      # 可选的 ROS camera_info YAML 文件路径，留空则使用下方内参。
+      # 相对路径依次相对于本配置文件目录、vins_folder 解析。
+      # 文件可读时，其内参（必要时还包括图像宽高）会覆盖下方对应参数。
+      camera_info_file: ""
+      # 输入图像宽度（像素），必须与实际图像一致。
+      image_width: 640
+      # 输入图像高度（像素），必须与实际图像一致。
+      image_height: 480
+      # PINHOLE 模型畸变参数（OpenCV 约定）：
+      # k1、k2 为径向畸变系数，p1、p2 为切向畸变系数。
       distortion_parameters:
-         k1: -6.0615e-02
-         k2: -1.0496e-02
-         p1: -1.570e-03
-         p2: -6.12e-04
+         # 径向畸变系数 k1。
+         k1: 0.0
+         # 径向畸变系数 k2。
+         k2: 0.0
+         # 切向畸变系数 p1。
+         p1: 0.0
+         # 切向畸变系数 p2。
+         p2: 0.0
+      # PINHOLE 模型投影参数（单位：像素）：
+      # fx、fy 为 x/y 方向焦距，cx、cy 为主点坐标。
       projection_parameters:
-         fx: 1.80863885e+03
-         fy: 1.80688425e+03
-         cx: 7.3676199e+02
-         cy: 5.6972947e+02
+         # x 方向焦距。
+         fx: 457.0073547363281
+         # y 方向焦距。
+         fy: 457.0073547363281
+         # 主点 x 坐标。
+         cx: 320.0
+         # 主点 y 坐标。
+         cy: 240.0
 
-      # Extrinsic parameter between IMU and camera.
-      # 0: accurate extrinsics; use imu^R_cam and imu^T_cam without changing them.
-      # 1: initial extrinsics; optimize around the initial guess.
-      # 2: unknown extrinsics; calibrate them during startup.
+      # ==================== IMU-相机外参 ====================
+      # 外参估计模式：
+      #   0：使用下方外参，不在线优化；
+      #   1：将下方外参作为初值，在优化中在线估计；
+      #   2：没有外参先验，启动时在线标定，不需要填写下方外参。
       estimate_extrinsic: 0
 
-      # Rotation from camera frame to IMU frame, imu^R_cam.
-      # ROS 2 parameters support a flat array for matrix values.
-      extrinsicRotation: [0.0148655429818, -0.999880929698, 0.00414029679422,
-                           0.999557249008, 0.0149672133247, 0.025715529948,
-                           -0.0257744366974, 0.00375618835797, 0.999660727178]
-      # Translation from camera frame to IMU frame, imu^T_cam.
-      extrinsicTranslation: [-0.0216401454975, -0.064676986768, 0.00981073058949]
+      # 相机坐标系到 IMU 坐标系的旋转矩阵 R_imu_cam，按行优先展开为 9 个数。
+      # 坐标变换关系：p_imu = R_imu_cam * p_cam 。
+      extrinsicRotation: [0.0,  0.0, 1.0,
+                        1.0,  0.0, 0.0,
+                        0.0, 1.0, 0.0]
+      # 相机坐标系到 IMU 坐标系的平移 t_imu_cam，单位：米。
+      # 坐标变换关系：p_imu = R_imu_cam * p_cam + t_imu_cam 。
+      extrinsicTranslation: [0.15, -0.025, 0.0]
 
-      # Feature tracker parameters
+      # ==================== 特征跟踪 ====================
+      # 每帧保留/提取的最大特征数；优先保留已跟踪特征，不足时补充新特征。
       max_cnt: 150
+      # 特征之间的最小像素间距，用于使特征分布更均匀。
       min_dist: 30
+      # 特征跟踪和发布的期望频率（Hz）；设置为 0 时按 100 Hz 处理。
       freq: 10
+      # 对极几何 RANSAC 拒绝外点的阈值（像素）。
       F_threshold: 1.0
+      # 是否发布带跟踪结果的可视化图像：0 关闭，1 开启。
       show_track: 1
+      # 是否对输入图像执行 CLAHE 直方图均衡：0 关闭，1 开启。
       equalize: 1
+      # 是否使用鱼眼图像掩膜 config/fisheye_mask.jpg：0 关闭，1 开启。
+      # 注意：该开关只控制掩膜；鱼眼相机模型应通过 model_type 选择。
       fisheye: 0
 
-      # Optimization parameters
+      # ==================== 优化参数 ====================
+      # 每次 Ceres 求解允许的最大耗时（秒）。
       max_solver_time: 0.04
+      # Ceres 求解的最大迭代次数。
       max_num_iterations: 8
+      # 关键帧视差阈值（像素）；平均视差超过该值才插入关键帧。
+      # 增大该值会减少关键帧数量。
       keyframe_parallax: 10.0
 
-      # IMU parameters
+      # ==================== IMU 参数 ====================
+      # 加速度计测量噪声标准差，单位约为 m/s^2。
       acc_n: 0.08
+      # 陀螺仪测量噪声标准差，单位约为 rad/s。
       gyr_n: 0.004
+      # 加速度计随机游走噪声标准差。
       acc_w: 0.00004
+      # 陀螺仪随机游走噪声标准差。
       gyr_w: 2.0e-6
+      # 当地重力加速度大小，单位：m/s^2。
       g_norm: 9.81007
 
-      # Loop closure parameters
+      # ==================== 回环检测与位姿图 ====================
+      # 是否启用回环检测和位姿图优化：0 关闭，1 开启。
       loop_closure: 1
+      # 启动时是否加载已保存的位姿图：0 不加载，1 加载。
       load_previous_pose_graph: 0
+      # 是否启用快速重定位，通常与 load_previous_pose_graph 配合使用。
       fast_relocalization: 0
+      # 位姿图和关键帧数据的保存目录；路径末尾必须保留 '/'。
       pose_graph_save_path: ./output/pose_graph/
 
-      # Unsynchronized sensor parameters
-      estimate_td: 0
-      td: 0.0
+      # ==================== 相机-IMU 时间同步 ====================
+      # 是否在线估计相机与 IMU 的时间偏移：0 固定 td，1 在线估计。
+      estimate_td: 1
+      # 相机-IMU 时间偏移初值，单位：秒；传感器已同步时为 0。
+      td: 1791463078.45
 
-      # Rolling shutter parameters
+      # ==================== 卷帘快门参数 ====================
+      # 是否启用卷帘快门模型：0 全局快门，1 卷帘快门。
       rolling_shutter: 0
+      # 卷帘快门整帧读出时间，单位：秒；代码按 TR / image_height 换算到每行。
       rolling_shutter_tr: 0.0
 
-      # Visualization parameters
+      # ==================== 可视化与调试 ====================
+      # 开启回环时是否保存关键帧图像：0 不保存，1 保存。
       save_image: 1
+      # 是否使用 imu_forward 话题中的前向传播位姿进行可视化：
+      # 0 使用 VIO 优化位姿，1 使用 IMU 前向传播位姿。
       visualize_imu_forward: 0
+      # RViz 中相机位姿标记的缩放尺寸。
       visualize_camera_size: 0.4
